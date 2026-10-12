@@ -8,10 +8,9 @@
 | Workstream | Security Operations (SOC) |
 | Deliverable | `06-DELIVERABLES/SOC/Detection-Surface.md` |
 | Companion documents | `Coverage-Gaps.md`, `Detection-Backlog.md` |
-| Version | 1.0 — draft for review |
 | Date | 11 October 2026 |
-| Prepared by | [SOC analyst — name] |
-| Reviewed by | [Senior consultant / mentor — name] |
+| Prepared by | SOC team|
+
 | Status | **Provisional.** Based on architecture documents and information reported by the Security Operations Manager. No access to the Sentinel workspace has been granted, no queries have been run and no detection has been tested. |
 
 ## 1. Purpose and scope
