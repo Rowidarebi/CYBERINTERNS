@@ -1,6 +1,6 @@
 # Coverage Gap Assessment
 
-**Project Sentinel · Inject 03 — Sentinel, What You're Inheriting · SOC Track**
+**Project Sentinel · Inject 03 **
 
 | Item | Detail |
 |---|---|
@@ -9,8 +9,7 @@
 | Deliverable | `06-DELIVERABLES/SOC/Coverage-Gaps.md` |
 | Companion documents | `Detection-Surface.md`, `Detection-Backlog.md` |
 | Date | 11 October 2026 |
-| Prepared by | SOC team|
-
+| Prepared by | SOC Team |
 | Status | **Provisional.** Priorities are based on documents and client-reported information. They may change once the questions in Section 9 are answered and the workspace can be inspected. |
 
 ## 1. Purpose
@@ -29,6 +28,9 @@ Evidence references (E1–E6) and classifications are the same as in `Detection-
 | E4 | `02-ARCHITECTURE/04-Data-Flow.md` |
 | E5 | Inject 03 briefing from Marcus Ifill, Security Operations Manager (reported) |
 | E6 | `01-CLIENT/01-Company-Profile.md`, `02-Organisation-Chart.md`, `03-Business-Processes.md`, `04-Stakeholders.md` |
+| E7 | `04-SOC/Logs/Log-Source-Inventory.md` |
+| E8 | `04-SOC/Alerts/Analytics-Rules.md` |
+| E9 | `04-SOC/Alerts/Alert-Summary-30-Days.md` |
 
 **Confirmed (C)** = stated in the documentation · **Reported (R)** = stated by the client, not verified · **Inferred (I)** = reasoned interpretation · **Unknown (U)** = validation required.
 
@@ -135,14 +137,14 @@ Implementation difficulty is rated **Low / Medium / High** from the documented a
 |---|---|
 | Gap ID | G5 |
 | Affected system | Front Door/WAF, App Service, VPN Gateway, Fortigate, Microsoft 365 activity, domain controllers, JUMP-01, `CA-Exclusions-Service` accounts, Defender for Cloud alerts |
-| Evidence source | E5: rules are built-in templates for Entra ID, Azure Activity and Azure Firewall, with default configuration, plus four custom KQL rules, two of uncertain function (R). E1 §6: "There is no formal detection engineering backlog" (C). E1 §6, E2 §7, E3 §7: the sources above are documented as reaching the workspace (C). E6 (`02-Organisation-Chart` §4): no detection engineering role (C) |
-| Visibility gap | Several sources reportedly arrive in the workspace but no rule is reported for them. Default templates are not tuned to FinServe's environment. The function of two custom rules is not understood by the SOC itself. |
+| Evidence source | E5: rules are built-in templates for Entra ID, Azure Activity and Azure Firewall, with default configuration, plus four custom KQL rules, two of uncertain function (R). E1 §6: "There is no formal detection engineering backlog" (C). E1 §6, E2 §7, E3 §7: the sources above are documented as reaching the workspace (C). E6 (`02-Organisation-Chart` §4): no detection engineering role (C). E8 §2: full KQL for all four custom rules (C). E9 §2: alert counts by rule (C) |
+| Visibility gap | Several sources reportedly arrive in the workspace but no rule is reported for them. Default templates are not tuned to FinServe's environment. Of the four custom rules, two are non-functional: **CUST-03** ("Database mass export") queries `SQLSecurityAuditEvents`, which does not exist in the workspace because the SQL audit connector was never enabled (E7 §1; E8 §2). It has produced zero alerts since deployment (E9 §2). Marcus took the silence as good news; it was the absence of data (E5). **CUST-02** ("Privileged role assignment outside change window") has inverted logic: the `between` clause in its KQL retains events **inside** the 09:00-17:00 window, not outside it, so it alerts on legitimate daytime changes and passes out-of-hours assignments in silence (E8 §2). It produced 9 incidents in 30 days, all closed as informational (E9 §2), consistent with catching normal working-hours activity. Marcus noted he had not reviewed the rule (E5). Two of FinServe's four custom detections have provided no real protection since they were deployed. |
 | Attacker activity that could go unobserved | Web attacks that get past or around the WAF; misuse of VPN accounts; malicious inbox rules in finance mailboxes; Domain Admins group changes; RDP logons to JUMP-01 by unexpected accounts; sign-ins by MFA-excluded service accounts from unusual locations. |
 | Business and security consequences | The bank pays to collect data that does not protect it. Attacks are recorded but only found later, if someone searches. This is the cheapest gap to close because the telemetry is already there. |
-| What closes the gap | Obtain the full rule inventory; review the four custom rules; map existing rules to the data sources and to MITRE ATT&CK; adopt the prioritised `Detection-Backlog.md` (Category A detections first). |
+| What closes the gap | Disable or fix the two broken custom rules (CUST-02 and CUST-03) immediately, since they give a false impression of coverage. Obtain the full rule inventory; review the remaining custom and built-in rules; map existing rules to the data sources and to MITRE ATT&CK; adopt the prioritised `Detection-Backlog.md` (Category A detections first, with DET-05 effectively replacing CUST-02). |
 | Implementation difficulty | **Medium.** No new data needed, but it requires analyst time the two-person SOC does not have (E6). |
 | Priority and rationale | **High.** It affects many sources at once, including privileged access paths (JUMP-01, DCs, CA exclusions). Rated below G1/G2 because some indirect visibility exists through Entra and Azure Activity templates. |
-| Dependencies and validation | Rule inventory and the four custom rules (Q2). Confirmation that the data is actually arriving (Q1, Q3). Windows event scope for DCs and JUMP-01 (Q10). |
+| Dependencies and validation | Rule inventory and the four custom rules (Q2). Confirmation that the data is actually arriving (Q1, Q3). Windows event scope for DCs and JUMP-01: E7 §2 confirms the data collection rule uses the **Common** event set, and E7 §5 notes that "several event IDs relevant to credential access are outside it." Group-change events (4728, 4732, 4756) are in Common; some Kerberos and credential events are not. Q10 is partly answered by E7 but should still be confirmed in the DCR. |
 
 ### G6 — No visibility into third-party systems
 
@@ -195,8 +197,8 @@ Implementation difficulty is rated **Low / Medium / High** from the documented a
 |---|---|
 | Gap ID | G9 |
 | Affected system | Intune, Purview DLP, the full Unified Audit Log, Defender for Endpoint and Defender for Office 365 data, macOS / mobile / BYOD devices |
-| Evidence source | E3 §7: Intune audit "Intune only, not forwarded"; DLP incidents in Purview and email; Defender for Endpoint "Defender portal + Sentinel", 30 days raw, 180 days alerts; UAL 180/90 days (C). E2 §7 and E5: no Defender XDR connector listed (C/R) — discrepancy X3. E3 §6: Defender for Endpoint documented for Windows only; BYOD compliance in report-only; 7 ASR rules in Audit (C) |
-| Visibility gap | Several Microsoft security sources stay in their own portals. Whether endpoint and email security data reach Sentinel at all is unclear. Non-Windows device coverage is not documented. |
+| Evidence source | E3 §7: Intune audit "Intune only, not forwarded"; DLP incidents in Purview and email; Defender for Endpoint "Defender portal + Sentinel", 30 days raw, 180 days alerts; UAL 180/90 days (C). E7 §1: Microsoft Defender XDR connector listed as "Connected" with tables `SecurityAlert` and `SecurityIncident` (C), partly resolving discrepancy X3. E3 §6: Defender for Endpoint documented for Windows only; BYOD compliance in report-only; 7 ASR rules in Audit (C) |
+| Visibility gap | The Defender XDR connector exists and carries alerts (`SecurityAlert`, `SecurityIncident`) into the workspace (E7 §1). However, **raw endpoint telemetry** (process execution, network connections, logon events from advanced hunting tables such as `DeviceEvents`, `DeviceLogonEvents`) does not appear to be forwarded and remains in the Defender portal with 30-day retention. Intune and DLP data stay in their own portals. Non-Windows device coverage is not documented. The gap is narrower than previously assessed (alerts do reach Sentinel) but real (raw events for investigation do not, and retention is short). |
 | Attacker activity that could go unobserved in Sentinel | Disabling device compliance or security policies in Intune; DLP events showing customer data leaving; endpoint activity on unmanaged or non-Windows devices. Much of this would still be visible in the Defender and Purview portals if someone looks there (I). |
 | Business and security consequences | Alerts split across several portals for a two-person team; slower correlation; evidence for endpoint investigations kept for only 30 days. |
 | What closes the gap | Confirm and, if missing, enable the Defender XDR connector; forward Intune audit logs to the workspace; bring DLP alerts into the incident queue; confirm Defender coverage for macOS. |
@@ -209,14 +211,14 @@ Implementation difficulty is rated **Low / Medium / High** from the documented a
 | Field | Detail |
 |---|---|
 | Gap ID | G10 |
-| Affected system | Entra Connect server; Key Vault `kv-finserve-prod`; API Management; Azure Functions; Cache for Redis; Azure DevOps pipelines and service principals; Azure Automation; shared file services; ExpressRoute gateway; Cloudflare; customer authentication and SCA events |
-| Evidence source | These systems appear in E1 §2, E2 §1–§5, E3 §2 and E4 §2 but in none of the logging tables (E1 §6, E2 §7, E3 §7). E2 §7's general statement that all resource diagnostics are sent is contradicted by the Storage gap (X2) |
+| Affected system | Key Vault `kv-finserve-prod`; API Management; Azure Functions; Cache for Redis; Azure DevOps pipelines and service principals; Azure Automation; shared file services; ExpressRoute gateway; Cloudflare; customer authentication and SCA events |
+| Evidence source | These systems appear in E1 §2, E2 §1-§5, E3 §2 and E4 §2 but in none of the architecture logging tables (E1 §6, E2 §7, E3 §7). E2 §7's general statement that all resource diagnostics are sent is contradicted by the Storage gap (X2). **Note:** Entra Connect was previously listed here but is now confirmed as forwarding Windows Security Events via AMA (E7 §2: `ENTRACONNECT-01` using `dcr-security-events-common`). It has been moved to the identity section of `Detection-Surface.md`. |
 | Visibility gap | The SOC cannot say whether these systems are monitored. |
-| Attacker activity that could go unobserved | Possibly: compromise of the Entra Connect server (which synchronises password hashes); reading secrets from Key Vault; misuse of the pipeline service principal with Contributor on `sub-prod`; customer account takeover. |
-| Business and security consequences | If unmonitored, several would rank High or Critical: Entra Connect is effectively a tier-0 identity system; Key Vault holds connection strings and API keys; customer authentication is central to fraud detection. |
+| Attacker activity that could go unobserved | Possibly: reading secrets from Key Vault; misuse of the pipeline service principal with Contributor on `sub-prod`; customer account takeover. |
+| Business and security consequences | If unmonitored, several would rank High or Critical: Key Vault holds connection strings and API keys; customer authentication is central to fraud detection. |
 | What closes the gap | Validation first: confirm diagnostic settings, agents and connectors for each system; then rate each one using the method in Section 3. |
 | Implementation difficulty | **Unknown** until validated. |
-| Priority and rationale | **Provisional.** Entra Connect, Key Vault and customer authentication are likely High because of what they protect. |
+| Priority and rationale | **Provisional.** Key Vault and customer authentication are likely High because of what they protect. |
 | Dependencies and validation | Q10, Q11, Q12, Q13. |
 
 ## 6. Detection Coverage Gaps vs. Log Retention Gaps
@@ -330,13 +332,3 @@ Answers would change the findings above. All gap ratings are **provisional** unt
 | Q14 | 3 | What does the Corebridge contract allow: log types, format, ticket turnaround, retention, security-event notification? | Determines G6 options. | G6 |
 | Q15 | 4 | Is there a documented regulatory, legal or policy requirement for security log retention? Was the one-year request rejected or deferred, and why? | Resolves discrepancy X4; frames the retention recommendation. | Retention |
 | Q16 | 4 | Can we see the 847 alerts broken down by rule, severity and closure reason, plus sample closed incidents? How were the four investigated alerts selected? | Tests the operating observations in Section 7. | G5 |
-
-## 10. Contribution
-
-| Section | Prepared by | Reviewed by |
-|---|---|---|
-| 1–4 Method and gap summary | [Team member name] | [Reviewer name] |
-| 5 Gap details G1–G10 | [Team member name] | [Reviewer name] |
-| 6 Coverage vs retention | [Team member name] | [Reviewer name] |
-| 7 SOC operating observations | [Team member name] | [Reviewer name] |
-| 8–9 Next steps and questions | [Team member name] | [Reviewer name] |
