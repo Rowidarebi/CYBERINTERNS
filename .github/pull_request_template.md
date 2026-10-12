@@ -18,6 +18,11 @@
 - [ ] Filenames follow the convention in the directory's README
 - [ ] I have read my own diff
 
+## AI use
+
+<!-- Which AI tools you used, and for what. "None" is an answer. Nobody is
+     marked down for using AI or for saying so; see ASSESSMENT-RUBRIC.md §1. -->
+
 ## For the mentor
 
 <!-- Anything you want challenged, or a decision you were unsure about. Saying

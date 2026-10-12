@@ -40,6 +40,31 @@ support.
 - **Agreeing with your mentor.** A well-argued position your mentor disagrees
   with scores full marks.
 
+### AI tools
+
+You may use AI tools: chat assistants, writing tools, code assistants. Added
+on 9 October 2026, during week 1 of Pilot 1.
+
+1. **Say what you used, and for what.** Every pull request description has an
+   **AI use** section. Name the tool and what it did ("drafted section 2 from
+   our notes", "suggested KQL I then corrected", "none"). Nobody is marked down
+   for using AI or for saying so.
+2. **You own every claim.** AI-written text is marked like any other text. AI
+   tools invent plausible regulations, section numbers, log tables and field
+   names. A claim that does not trace to the scenario material is band 1 in B1
+   (invented facts) whoever wrote it, and an assumption presented as fact is a
+   D4 finding (§5) whoever wrote it. Check every factual claim against the
+   source before it goes in.
+3. **Nothing goes into an AI tool that is not already in this public
+   repository.** No personal data about real people, no credentials, nothing a
+   mentor has told you privately.
+4. **Be ready to explain it.** Your mentor may ask you to talk through any part
+   of your work in your own words. That is part of the evidence for individual
+   adjustment (§4).
+
+For work merged before this section was added, add the disclosure as a comment
+on the pull request. There is no penalty for not having done it earlier.
+
 ---
 
 ## 2. Scale
