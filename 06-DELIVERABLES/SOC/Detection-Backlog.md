@@ -8,10 +8,9 @@
 | Workstream | Security Operations (SOC) |
 | Deliverable | `06-DELIVERABLES/SOC/Detection-Backlog.md` |
 | Companion documents | `Detection-Surface.md`, `Coverage-Gaps.md` |
-| Version | 1.0 — draft for review |
 | Date | 11 October 2026 |
-| Prepared by | [SOC analyst — name] |
-| Reviewed by | [Senior consultant / mentor — name] |
+| Prepared by | SOC team |
+
 | Status | **Proposed, not deployed.** All KQL is illustrative. None of it has been run against FinServe data or tested, and no results are claimed. |
 
 ## 1. Purpose
