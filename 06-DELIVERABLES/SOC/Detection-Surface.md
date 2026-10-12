@@ -1,6 +1,6 @@
 # Detection Surface Map
 
-**Project Sentinel · Inject 03 — Sentinel, What You're Inheriting · SOC Track**
+**Project Sentinel · Inject 03 **
 
 | Item | Detail |
 |---|---|
@@ -9,8 +9,7 @@
 | Deliverable | `06-DELIVERABLES/SOC/Detection-Surface.md` |
 | Companion documents | `Coverage-Gaps.md`, `Detection-Backlog.md` |
 | Date | 11 October 2026 |
-| Prepared by | SOC team|
-
+| Prepared by | SOC Team |
 | Status | **Provisional.** Based on architecture documents and information reported by the Security Operations Manager. No access to the Sentinel workspace has been granted, no queries have been run and no detection has been tested. |
 
 ## 1. Purpose and scope
@@ -33,8 +32,11 @@ Out of scope: testing or changing any configuration. This is a documentary asses
 | E4 | `02-ARCHITECTURE/04-Data-Flow.md` | §1 Data categories, §2 Flows, §3 Third parties, §4 Reconciliation path, §5 Cross-border transfer | FinServe documentation |
 | E5 | Inject 03 briefing from Marcus Ifill, Security Operations Manager | Connectors, analytics rules, alert statistics, retention, known concerns | Client statement |
 | E6 | `01-CLIENT/01-Company-Profile.md` §2; `01-CLIENT/02-Organisation-Chart.md` §4, §6, §7; `01-CLIENT/03-Business-Processes.md` §4; `01-CLIENT/04-Stakeholders.md` §4 | Branch customers, security team size, device allocation, settlement process, SME context | FinServe documentation |
+| E7 | `04-SOC/Logs/Log-Source-Inventory.md` | §1 Sentinel data connectors, §2 Hosts forwarding to workspace, §3 Systems with no telemetry, §4 Retention, §5 Known limitations | SOC internal documentation |
+| E8 | `04-SOC/Alerts/Analytics-Rules.md` | §1 Built-in templates, §2 Custom rules (CUST-01 to CUST-04), §3 Automation, §4 Suppression and tuning, §5 Coverage assessment | SOC internal documentation |
+| E9 | `04-SOC/Alerts/Alert-Summary-30-Days.md` | §1 Headline, §2 By rule, §3 The four investigated, §4 Working pattern, §5 SOC Manager notes | SOC internal documentation |
 
-The architecture README states that these documents describe the estate "in the voice of the people who built it" and that confident phrasing should be treated "as a claim to be tested". This map follows that instruction.
+The architecture README states that these documents describe the estate "in the voice of the people who built it" and that confident phrasing should be treated "as a claim to be tested". This map follows that instruction. The SOC internal documents (E7-E9) describe what Security Operations believes it has and how it operates; where they conflict with the architecture documents, the discrepancy is a finding.
 
 ## 3. Coverage status definitions
 
@@ -117,12 +119,12 @@ Evidence references are shown as *source § (class)*. Condition 6 (tested) is Un
 
 | System | Security-Relevant Telemetry | Reaches Sentinel? | Retention | Analytics Rule Coverage |
 |---|---|---|---|---|
-| **Microsoft Entra ID** — ~470 accounts, 9 Conditional Access policies | Interactive sign-ins, risk events, directory and role changes. E3 §2, §7 (C) | **Yes (documented)** — sign-in and audit logs. E2 §7, E3 §7 (C); E5 (R). Whether non-interactive and service-principal sign-ins are selected: Unknown | 60 days in workspace; 30 days in Entra itself. E3 §7 (C) | **Template (reported)** — built-in Entra ID templates. E5 (R) |
+| **Microsoft Entra ID** -- ~470 accounts, 9 Conditional Access policies | Interactive sign-ins, risk events, directory and role changes. E3 §2, §7 (C) | **Yes (documented)** -- sign-in and audit logs. E2 §7, E3 §7 (C); E5 (R). E7 §1 lists both `SigninLogs` and `AADNonInteractiveUserSignInLogs` as collected (C), confirming that non-interactive sign-ins are included. Whether service-principal sign-ins are also selected: Unknown | 60 days in workspace; 30 days in Entra itself. E3 §7 (C) | **Template (reported)** -- built-in Entra ID templates. E5 (R) |
 | **Break-glass accounts** (2; permanent Global Admin; excluded from MFA) | Sign-ins and changes to these accounts. E2 §4 (C) | **Yes (documented)** via Entra sign-in logs. E3 §7 (C) | 60 days in workspace. E3 §7 (C) | **Specific rule (documented)** — "sign-in alerting on these accounts is configured in Sentinel". E2 §4 (C). Tested: Unknown |
 | **`CA-Exclusions-Service` group** — break-glass, 3 service accounts, FinRecon shared mailbox (IMAP basic auth) | Sign-ins that bypass the MFA, legacy-auth block and country block policies. E3 §2 (C) | **Yes (documented)** via Entra sign-in logs, if those sign-in types are collected. E3 §7 (C); (U) | 60 days in workspace. E3 §7 (C) | **Unknown — validation required.** Only the break-glass rule is documented |
-| **Domain controllers** ×2 — `finserve.local`; 6 Domain Admins who also use these accounts day to day | Windows Security events: logons, group changes, Kerberos activity. E1 §6; E3 §2 (C) | **Yes (documented)** via Azure Monitor Agent. E1 §6 (C). Which event IDs the collection rule includes: Unknown | 60 days in workspace. E1 §6 (C) | **Unknown — validation required.** No AD-specific rule reported. E5 (R) |
-| **Entra Connect server** (`sub-identity`; password hash sync) | Windows Security events; directory synchronisation activity. E3 §2 (C) | **Unknown — validation required.** Not in any logging table | Unknown | Unknown |
-| **JUMP-01** — all administrative access to production; RDP from an IP allowlist | Windows Security events: RDP logons, privilege use. E1 §4, §6 (C) | **Yes (documented)** via Azure Monitor Agent. E1 §6 (C). Event scope: Unknown | 60 days in workspace. E1 §6 (C) | **Unknown — validation required.** E5 (R) |
+| **Domain controllers** x2 -- `finserve.local`; 6 Domain Admins who also use these accounts day to day | Windows Security events: logons, group changes, Kerberos activity. E1 §6; E3 §2 (C) | **Yes (documented)** via Azure Monitor Agent. E1 §6 (C); E7 §2: hosts `DC-01` and `DC-02` using `dcr-security-events-common` (C). The data collection rule uses the **Common** event set, not All (E7 §2, §5). E7 §5 notes that "several event IDs relevant to credential access are outside it" (C). Event IDs 4728, 4732, 4756 (group changes) are in the Common set; some Kerberos and credential-access events (4768, 4769, 4771) are not (I) | 60 days in workspace. E1 §6 (C) | **Unknown -- validation required.** No AD-specific rule reported. E5 (R) |
+| **Entra Connect server** (`sub-identity`; password hash sync) | Windows Security events; directory synchronisation activity. E3 §2 (C) | **Yes (documented)** via Azure Monitor Agent. E7 §2: `ENTRACONNECT-01` is one of four hosts forwarding Windows Security Events, using `dcr-security-events-common` (C). Not listed in E1 §6 or E2 §7 (discrepancy resolved by E7). Event scope: **Common** event set, not All (E7 §5). | 60 days in workspace. E7 §4 (C) | **Unknown -- validation required.** No rule reported for synchronisation activity. E5 (R) |
+| **JUMP-01** -- all administrative access to production; RDP from an IP allowlist | Windows Security events: RDP logons, privilege use. E1 §4, §6 (C) | **Yes (documented)** via Azure Monitor Agent. E1 §6 (C); E7 §2: `JUMP-01` using `dcr-security-events-common` (C). **Common** event set (E7 §2). Event ID 4624 (logon, including RDP type 10) is in the Common set; DET-08 should work for this host (I) | 60 days in workspace. E1 §6 (C) | **Unknown -- validation required.** E5 (R) |
 | **Azure RBAC** — standing Owner/Contributor; PIM licensed but not configured; access via Entra groups | Role assignment changes (Azure Activity); group membership changes (Entra audit). E2 §4 (C) | **Yes (documented)** via Azure Activity and Entra audit logs. E2 §7 (C) | 60 days in workspace. E2 §7 (C) | **Template (reported)** for Azure Activity and Entra families. E5 (R). Coverage of group-based privilege changes: Unknown |
 
 ### 4.5 Microsoft 365 and endpoints
@@ -130,8 +132,8 @@ Evidence references are shown as *source § (class)*. Condition 6 (tested) is Un
 | System | Security-Relevant Telemetry | Reaches Sentinel? | Retention | Analytics Rule Coverage |
 |---|---|---|---|---|
 | **Exchange Online, SharePoint, OneDrive, Teams** | Mailbox access, inbox rules, file access and sharing, guest activity. E3 §3, §4 (C) | **Yes (documented)** — Microsoft 365 connector. E2 §7 (C); E5 (R). It is unlikely to carry the full Unified Audit Log (I) | Workspace 60 days. Unified Audit Log in Purview: **180 days (E5, 120 users) / 90 days (E3/F3, 330 users)**. E3 §7 (C) | **None reported** for M365 activity. E5 (R) |
-| **Defender for Office 365** | Phishing, malware, impersonation alerts. E3 §1, §3 (C) | **Partial / conflicting.** E3 §7 says alerts arrive via the "M365 Defender connector"; that connector is not in the E2 §7 or Marcus lists. **Unknown — validation required** | 60 days in workspace. E3 §7 (C) | Alerts only, if the connector exists (U) |
-| **Defender for Endpoint** — 355 corporate Windows 11 laptops | Process, network and logon events; endpoint alerts; ASR events (7 of 16 rules in Audit mode). E3 §6 (C) | **Partial / conflicting.** E3 §7: "Defender portal + Sentinel"; the connector is not in the E2 §7 or Marcus lists. **Unknown — validation required** | Raw events **30 days**; alerts **180 days**. E3 §7 (C). Location (Defender portal or workspace): Unknown | Alerts only, if the connector exists (U) |
+| **Defender for Office 365** | Phishing, malware, impersonation alerts. E3 §1, §3 (C) | **Partial.** E7 §1 lists the Microsoft Defender XDR connector as "Connected" with tables `SecurityAlert` and `SecurityIncident` (C). This partly resolves discrepancy X3: the connector exists, but carries **alerts only**, not raw events. Whether email-specific alerts (phishing, impersonation) reach it: confirm in workspace | 60 days in workspace for alerts. E7 §1 (C) | Alerts only, via the XDR connector. No custom detection for email threats (R) |
+| **Defender for Endpoint** -- 355 corporate Windows 11 laptops | Process, network and logon events; endpoint alerts; ASR events (7 of 16 rules in Audit mode). E3 §6 (C) | **Partial.** E7 §1 lists the Defender XDR connector as "Connected" (C), resolving the E2 §7 / E5 omission. Tables `SecurityAlert` and `SecurityIncident` are in the workspace. **Raw endpoint events** (process, network, logon) are **not** carried by the connector at this scope; they remain in the Defender portal (I). Whether advanced hunting tables (`DeviceEvents` etc.) are forwarded: confirm in workspace | Raw events **30 days** in Defender portal; alerts **180 days**. Alert copies: 60 days in workspace. E3 §7 (C); E7 §1 (C) | Alerts only, via the XDR connector. No custom endpoint detection in Sentinel (R) |
 | **macOS (22), corporate iOS/Android (95), BYOD (~210)** | Device events; BYOD has app protection only, with compliance policy in report-only. E3 §6 (C) | **Unknown — validation required.** Defender for Endpoint is documented for Windows only | Unknown | Unknown |
 | **Microsoft Intune** | Device enrolment, policy and compliance changes. E3 §6 (C) | **No** — "Intune only, not forwarded". E3 §7 (C) | **1 year** in Intune, outside Sentinel. E3 §7 (C) | **Not possible** |
 | **Microsoft Purview DLP** — NI number, card number and credential policies | DLP policy matches and incidents. E3 §5 (C) | **No** — Purview and email to `dlp-alerts@`. E3 §7 (C) | **180 days** in Purview. E3 §7 (C) | **Not possible** in Sentinel |
@@ -186,7 +188,7 @@ These are the most important consequences of the table. Each states what the SOC
 |---|---|---|---|
 | X1 | AKS: "control plane + container logs → Log Analytics, onboarded: Yes" versus "AKS audit log: not enabled". | E1 §6 vs E2 §7; E5 | Conflict in documentation |
 | X2 | "All subscriptions send resource diagnostic settings" versus "Storage diagnostics not enabled". | E2 §7 | Internal contradiction |
-| X3 | Defender for Office 365 and Defender for Endpoint data are documented as reaching Sentinel, but no Defender XDR connector appears in the enabled connector lists. | E3 §7 vs E2 §7; E5 | Unknown |
+| X3 | Defender for Office 365 and Defender for Endpoint data are documented as reaching Sentinel, but no Defender XDR connector appears in the E2 §7 or Marcus lists. **Partly resolved:** E7 §1 lists Microsoft Defender XDR as "Connected" with `SecurityAlert` and `SecurityIncident` tables. The connector exists, but the scope of what it carries (alerts only, or also raw advanced hunting tables) needs validation. | E3 §7 vs E2 §7; E5; **resolved by** E7 §1 | Partly resolved |
 | X4 | One-year retention described as "rejected" by Marcus, and as "priced … and deferred" in the network document. | E5 vs E1 §6 | Reported vs documented |
 
 ### 6.3 How to validate with read-only access
@@ -224,14 +226,6 @@ The questions that would resolve the Unknowns are listed, in priority order, in 
 - **It is weakest where the bank's most sensitive data lives.** The customer database, the ID document store and the inside of the AKS cluster all produce logs that do not reach Sentinel.
 - **Some of the riskiest paths sit outside Azure** (the Slough settlement server, branches, Corebridge) and depend on local logs or supplier tickets.
 - **Collected does not mean watched.** At least six sources reportedly arrive in the workspace with no analytics rule reported for them.
+- **Two of the four custom rules are non-functional or broken.** CUST-03 ("Database mass export") queries `SQLSecurityAuditEvents`, a table that does not exist in the workspace because the SQL audit connector has never been enabled (E7 §1; E8 §2). It has generated zero alerts since deployment (E9 §2). CUST-02 ("Privileged role assignment outside change window") contains inverted logic: its KQL `between` clause keeps events **inside** 09:00-17:00 rather than outside it, meaning it alerts on legitimate daytime changes and misses out-of-hours ones (E8 §2). Marcus noted he had not reviewed it (E5). Both are effectively false protection.
 - **Retention varies from 14 days to 1 year** depending on where the data lives, and the longest periods (SQL audit, Intune) are outside Sentinel.
 - **Everything here is provisional** until arrival (condition 3) and rule behaviour (conditions 5 and 6) are checked in the workspace.
-
-## 8. Contribution
-
-| Section | Prepared by | Reviewed by |
-|---|---|---|
-| 1–3 Purpose, evidence and definitions | [Team member name] | [Reviewer name] |
-| 4 Detection surface table | [Team member name] | [Reviewer name] |
-| 5 Visibility limitations | [Team member name] | [Reviewer name] |
-| 6–7 Assumptions, validation and observations | [Team member name] | [Reviewer name] |
