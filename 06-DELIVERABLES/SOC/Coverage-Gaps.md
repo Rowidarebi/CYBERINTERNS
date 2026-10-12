@@ -8,10 +8,9 @@
 | Workstream | Security Operations (SOC) |
 | Deliverable | `06-DELIVERABLES/SOC/Coverage-Gaps.md` |
 | Companion documents | `Detection-Surface.md`, `Detection-Backlog.md` |
-| Version | 1.0 — draft for review |
 | Date | 11 October 2026 |
-| Prepared by | [SOC analyst — name] |
-| Reviewed by | [Senior consultant / mentor — name] |
+| Prepared by | SOC team|
+
 | Status | **Provisional.** Priorities are based on documents and client-reported information. They may change once the questions in Section 9 are answered and the workspace can be inspected. |
 
 ## 1. Purpose
