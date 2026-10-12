@@ -1,6 +1,6 @@
 # Detection Backlog
 
-**Project Sentinel · Inject 03 — Sentinel, What You're Inheriting · SOC Track**
+**Project Sentinel · Inject 03 **
 
 | Item | Detail |
 |---|---|
@@ -9,8 +9,7 @@
 | Deliverable | `06-DELIVERABLES/SOC/Detection-Backlog.md` |
 | Companion documents | `Detection-Surface.md`, `Coverage-Gaps.md` |
 | Date | 11 October 2026 |
-| Prepared by | SOC team |
-
+| Prepared by | SOC Team |
 | Status | **Proposed, not deployed.** All KQL is illustrative. None of it has been run against FinServe data or tested, and no results are claimed. |
 
 ## 1. Purpose
@@ -37,7 +36,7 @@ Priority follows the consequence-based method in `Coverage-Gaps.md` Section 3: w
 - Thresholds are starting points, not tuned values.
 - **Safe validation:** run queries only in the Logs page with read-only rights, over a short time range first (for example the last 24 hours). Review results with Marcus Ifill. Do not save a query as an analytics rule, create watchlists or change any setting without authorisation.
 
-Evidence references (E1–E6) are as defined in `Detection-Surface.md` Section 2.
+Evidence references (E1-E9) are as defined in `Detection-Surface.md` Section 2.
 
 ## 3. Backlog summary
 
@@ -101,7 +100,7 @@ AzureActivity
 | Attack scenario | An attacker uses one of the accounts excluded from MFA, legacy-auth blocking and country blocking: the two break-glass Global Administrators, three service accounts, or the FinRecon shared mailbox, which uses IMAP basic authentication (E3 §2). |
 | Affected system | Entra ID; `CA-Exclusions-Service` members |
 | Required log source | Entra ID sign-in logs — table `SigninLogs` (and `AADNonInteractiveUserSignInLogs` if collected) |
-| Currently collected? | **Yes — reported** for sign-in logs (E2 §7, E3 §7; E5). Whether non-interactive sign-ins are collected: **Unknown** (Q12). |
+| Currently collected? | **Yes -- reported** for sign-in logs (E2 §7, E3 §7; E5). E7 §1 confirms both `SigninLogs` and `AADNonInteractiveUserSignInLogs` are collected (C), so non-interactive sign-ins are available. Whether service-principal sign-ins (`AADServicePrincipalSignInLogs`) are also included: Unknown (Q12). |
 | Detection logic | Any break-glass sign-in → alert (high severity). Other excluded accounts → alert when the IP address, country or client application differs from that account's known pattern (for FinRecon: IMAP from its known source only). |
 | Likely false positives | Planned break-glass tests; service accounts running from new infrastructure after a change. |
 | Tuning and validation | Build a 30-day baseline of IP and client app per excluded account first; confirm the break-glass rule FinServe says already exists (E2 §4) and check it covers both accounts. |
@@ -128,7 +127,8 @@ SigninLogs
 
 | Field | Detail |
 |---|---|
-| Detection ID and name | DET-05 — Privileged role or group change outside change control |
+| Detection ID and name | DET-05 -- Privileged role or group change outside change control |
+| Replaces | **CUST-02** ("Privileged role assignment outside change window"), which has inverted KQL logic: its `between` clause keeps events **inside** 09:00-17:00 rather than outside it, alerting on legitimate daytime changes and missing out-of-hours ones (E8 §2). CUST-02 generated 9 incidents in 30 days, all closed as informational (E9 §2). It should be disabled when DET-05 is deployed. |
 | Attack scenario | An attacker who has gained an admin session gives themselves standing privilege: a new Owner role assignment on `sub-prod` or the tenant root, a new Entra directory role, or a new member in one of the Entra groups that hold Azure RBAC roles. Access is granted to groups, not individuals (E2 §4), so group membership is where privilege actually changes. |
 | Affected system | Azure RBAC (tenant root, `sub-prod`, `sub-sandbox`); Entra directory roles; privileged Entra groups |
 | Required log source | `AzureActivity` and Entra audit logs — table `AuditLogs` |
@@ -173,7 +173,7 @@ union azureRoleChanges, entraRoleChanges, groupChanges
 | Attack scenario | An attacker adds an account to Domain Admins or another privileged AD group; or logs on to JUMP-01, the single administrative route into production (E1 §4), with an account or from an address not seen before. The 6 Domain Admins also use these accounts for day-to-day work (E3 §2), which raises the chance of credential theft. |
 | Affected system | Domain controllers (`finserve.local`); JUMP-01 |
 | Required log source | Windows Security events via Azure Monitor Agent — table `SecurityEvent` |
-| Currently collected? | **Yes — documented** (E1 §6). **Conditional:** which event IDs the collection rule includes is Unknown (Q10). Event IDs 4728, 4732, 4756 and 4624 must be collected for this to work. |
+| Currently collected? | **Yes -- documented** (E1 §6; E7 §2). **Partly confirmed:** E7 §2 states the data collection rule (`dcr-security-events-common`) uses the **Common** event set on all four hosts (DC-01, DC-02, JUMP-01, ENTRACONNECT-01). The Common set includes event IDs 4728, 4732, 4756 (group membership changes) and 4624 (logon events, including RDP type 10), so both queries in this detection should work (I). However, E7 §5 notes that "several event IDs relevant to credential access are outside" the Common set; Kerberos events (4768, 4769, 4771) used in credential-theft detections are likely excluded. This detection does not depend on them, but future credential-access detections would need the event set upgraded to All. |
 | Detection logic | Query 1: alert on any member added to Domain Admins, Enterprise Admins, Schema Admins or Administrators. Query 2: list RDP logons (logon type 10) to JUMP-01 and alert on user/source-IP pairs not seen in the previous 14 days. |
 | Likely false positives | Approved admin changes; infrastructure staff working from a new home address; IP address translation hiding the real source. |
 | Tuning and validation | Confirm the event IDs are present first; check what source address JUMP-01 records for RDP from the allowlisted addresses. |
@@ -239,7 +239,8 @@ OfficeActivity
 
 | Field | Detail |
 |---|---|
-| Detection ID and name | DET-01 — Unusual volume of customer data read from `sqlmi-prod` |
+| Detection ID and name | DET-01 -- Unusual volume of customer data read from `sqlmi-prod` |
+| Replaces | **CUST-03** ("Database mass export"), which queries the table `SQLSecurityAuditEvents`. This table does not exist in the workspace because the SQL audit connector has never been enabled (E7 §1; E8 §2). CUST-03 has produced zero alerts since deployment (E9 §2). It should be disabled now and replaced by DET-01 once the prerequisite data is onboarded. |
 | Attack scenario | An attacker uses a stolen connection string (five AKS services keep them as Kubernetes secrets, E2 §2) or the UAT-to-production path (E1 §3.1) to extract customer and transaction records. |
 | Affected system | Azure SQL MI `sqlmi-prod` |
 | Required log source | SQL security audit events in the workspace (expected in `AzureDiagnostics` with Category `SQLSecurityAuditEvents`) |
@@ -368,8 +369,8 @@ AKSAudit
 | Blob logging in workspace | DET-02 | Platform team, after authorisation | Not started (G2) |
 | SFTP server logs in workspace | DET-06 | Infrastructure, after authorisation | Not started (G3) |
 | AKS full audit in workspace | DET-07 | Platform team, after authorisation | Not started (G4) |
-| Windows event IDs confirmed | DET-08 | Marcus Ifill | Requested (Q10) |
-| Non-interactive sign-ins confirmed | DET-04 | Marcus Ifill | Requested (Q12) |
+| Windows event IDs confirmed | DET-08 | Marcus Ifill | **Partly resolved** (E7 §2: Common set confirmed; group-change and logon IDs are included) |
+| Non-interactive sign-ins confirmed | DET-04 | Marcus Ifill | **Resolved** (E7 §1: `AADNonInteractiveUserSignInLogs` collected). Service-principal sign-ins still Unknown (Q12) |
 | Lists: CA-excluded accounts, privileged groups, finance mailboxes, admin accounts | DET-04, -05, -08, -09 | Marcus Ifill / platform team | Not yet requested |
 
 ## 7. What this backlog does not cover
@@ -378,12 +379,3 @@ AKSAudit
 - Branch firewall detections (G8): device capability is Unknown.
 - Customer authentication and fraud detections: no customer authentication log source is documented (G10).
 - Tuning of the existing 847-alert workload, which should run in parallel (`Coverage-Gaps.md` Section 7).
-
-## 8. Contribution
-
-| Section | Prepared by | Reviewed by |
-|---|---|---|
-| 1–3 Purpose and summary | [Team member name] | [Reviewer name] |
-| 4 Category A detections | [Team member name] | [Reviewer name] |
-| 5 Category B detections | [Team member name] | [Reviewer name] |
-| 6–7 Dependencies and limits | [Team member name] | [Reviewer name] |
