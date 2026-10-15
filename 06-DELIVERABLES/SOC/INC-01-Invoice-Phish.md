@@ -9,10 +9,8 @@
 | Deliverable | `06-DELIVERABLES/SOC/INC-01-Invoice-Phish.md` |
 | Companion | `Detection-Backlog.md`, Section 8 (detection gap: DET-10 and DET-11) |
 | References | Sentinel incident 2026-W2D1-0093; service desk ticket SD-2026-4417 |
-| Version | 1.0, draft for review |
 | Date | 14 October 2026 |
-| Prepared by | [Team member names] |
-| Reviewed by | [Team member names] |
+| Prepared by | SOC Team |
 | Status | **Provisional.** Built from the three inject artefacts and the existing 04-SOC documents. There is no tenant access and no query has been run. Section 8 lists what would be run and what I expect it to return. |
 
 **How to read this report.** Every statement is tagged.
