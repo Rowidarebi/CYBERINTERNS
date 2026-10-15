@@ -53,6 +53,7 @@ Evidence references (E1-E9) are as defined in `Detection-Surface.md` Section 2.
 | 9 | DET-09 | Suspicious inbox rule in finance mailboxes | **A** | Microsoft 365 activity (`OfficeActivity`) | **Yes — reported** (E2 §7; E5) | G5 |
 
 Five detections are Category A (DET-03, -04, -05, -08, -09) and four are Category B (DET-01, -02, -06, -07).
+**Addendum after Inject 04 (INC-01).** Two further Category A detections, DET-10 and DET-11, are written in Section 8. They are ranked 3 and 4, so the existing ranks 3 to 9 move to 5 to 11. The reason is in Section 8.
 
 ## 4. Category A — can be developed using currently reported data sources
 
@@ -379,3 +380,126 @@ AKSAudit
 - Branch firewall detections (G8): device capability is Unknown.
 - Customer authentication and fraud detections: no customer authentication log source is documented (G10).
 - Tuning of the existing 847-alert workload, which should run in parallel (`Coverage-Gaps.md` Section 7).
+
+## 8. Addendum: detection gap from INC-01 (Inject 04)
+
+### 8.1 Why this was added
+
+Incident 2026-W2D1-0093 was detected by the built-in "Atypical travel" rule 47 minutes after the first malicious sign-in. That rule flagged the location of the session. It did not flag what the attacker did: a token replayed with an MFA claim, an inbox rule named "." created three minutes later, and two files downloaded. The detections that mattered use data FinServe already collects: `SigninLogs` and `OfficeActivity` (both listed as connected in `Log-Source-Inventory.md`, E7 §1). Both are Category A. The full incident is in `INC-01-Invoice-Phish.md`.
+
+**Relationship to DET-09.** DET-09 (Section 4) already covers forwarding, redirect and delete inbox rules. DET-10 does not replace it. It targets the pattern seen in INC-01, where the rule hides mail (moved to an obscure folder, marked as read, near-empty name) rather than forwarding it, and it raises severity when the rule follows a sign-in from a new network. Both should be built; DET-10 can share DET-09's base query.
+
+### 8.2 Ranking change
+
+The new detections rank above the Azure Activity detections because they catch an attack pattern that has now happened, and the existing 12 built-in and four custom rules do not (E8). DET-01 and DET-02 stay at ranks 1 and 2 on consequence, but they cannot run until their data is collected, so DET-10 and DET-11 are the first detections that can be built and validated once read-only access is granted. DET-10 also supersedes the "move" branch of DET-09 with much higher fidelity. DET-09 stays in the backlog for forward and redirect rules.
+
+| Rank | ID | Detection | Category | Required log source | Collected today? | Gap |
+|---|---|---|---|---|---|---|
+| 3 | DET-10 | Concealing inbox rule, created by a user with a new-network sign-in | **A** | `OfficeActivity`, `SigninLogs` | **Yes, reported and listed as connected** (E7 §1) | G5 |
+| 4 | DET-11 | Finance user signs in from an unmanaged device and a new IP, MFA satisfied by a token claim | **A** | `SigninLogs` | **Yes, reported and listed as connected** (E7 §1) | G5 |
+
+### DET-10: Concealing inbox rule created after a sign-in from a new network location
+
+| Field | Detail |
+|---|---|
+| Detection ID and name | DET-10: Concealing inbox rule, optionally after a new-network sign-in |
+| Attack scenario | After taking over a mailbox, the attacker creates a rule that moves or deletes mail about the target process into an obscure folder and marks it read, so the victim never sees replies. In INC-01 the rule was named ".", moved mail mentioning "meridian", "settlement" or "reconciliation" to "RSS Subscriptions" and marked it read. |
+| Affected system | Exchange Online, with finance and settlement mailboxes the most exposed |
+| Required log source | Microsoft 365 activity, table `OfficeActivity` (Exchange workload). Sign-in context from `SigninLogs`. |
+| Currently collected? | **Yes, reported.** Microsoft 365 connector and Entra sign-in logs are listed as connected (E7 §1). Arrival and delay not verified. Whether the Parameters field carries the rule settings for rules made by every client: confirm in the data. |
+| Detection logic | Score each new or changed inbox rule: +1 if it moves mail to an obscure folder, +1 if it uses finance words, +1 if the rule name is one or two characters, +1 if it marks mail as read. Alert at a score of 3 or more. Alert at 2 or more if the user also had a successful sign-in from an IP not seen for that user in the previous 14 days. |
+| Likely false positives | Staff organising invoice mail into folders (the finance words and a folder move score 2, which is why a new-network sign-in is also required at that level). Rules created by approved automation. |
+| Tuning and validation | Run as a report over 30 days of history first and count hits per user. Exclude named automation accounts by identity. Check how rule names and folders appear in `Parameters` for rules made in Outlook on the web, desktop and PowerShell. |
+| Dependencies | Read-only workspace access (Q1 in `Coverage-Gaps.md`). The measured ingestion delay of `OfficeActivity` (Q11 in INC-01). A list of finance mailboxes if the rule is later scoped to them. |
+| Priority and justification | **3, High.** It catches the first persistent attacker action and works whatever the initial lure was. The data is already collected. The weakness is the ingestion delay, which is unmeasured. |
+
+```kql
+// DET-10 (illustrative, untested): inbox rule that hides mail, optionally after a new-network sign-in.
+let lookback = 1h;
+let obscureFolders = dynamic(["RSS Subscriptions", "RSS Feeds", "Conversation History", "Archive", "Deleted Items", "Junk Email"]);
+let sensitiveWords = dynamic(["settlement", "reconciliation", "meridian", "invoice", "payment", "remittance"]);
+let knownIps = SigninLogs
+    | where TimeGenerated between (ago(15d) .. ago(1d))
+    | where ResultType == 0
+    | summarize by Upn = tolower(UserPrincipalName), IPAddress;
+let usersWithNewNetworkSignIn = toscalar(
+    SigninLogs
+    | where TimeGenerated > ago(lookback + 1h)
+    | where ResultType == 0
+    | extend Upn = tolower(UserPrincipalName)
+    | join kind=leftanti knownIps on Upn, IPAddress
+    | summarize make_set(Upn));
+OfficeActivity
+| where TimeGenerated > ago(lookback)
+| where OfficeWorkload == "Exchange"
+| where Operation in~ ("New-InboxRule", "Set-InboxRule", "UpdateInboxRules")
+| extend Params = tostring(Parameters)
+| where Params has_any ("MoveToFolder", "DeleteMessage", "ForwardTo", "RedirectTo", "ForwardAsAttachmentTo")
+| extend RuleName = extract(@'"Name":"Name","Value":"([^"]*)"', 1, Params)
+| extend Upn = tolower(UserId)
+| extend HidesInObscureFolder = Params has_any (obscureFolders),
+         SensitiveWords = Params has_any (sensitiveWords),
+         ShortName = strlen(RuleName) <= 2,
+         MarksAsRead = Params has "MarkAsRead",
+         NewNetworkSignIn = Upn in (usersWithNewNetworkSignIn)
+| extend Score = toint(HidesInObscureFolder) + toint(SensitiveWords) + toint(ShortName) + toint(MarksAsRead)
+| where Score >= 3 or (Score >= 2 and NewNetworkSignIn)
+| project TimeGenerated, Upn, ClientIP, Operation, RuleName, Score, NewNetworkSignIn, Params
+```
+
+**In plain language:** look at inbox rules created or changed in the last hour that move, delete, forward or redirect mail, and score how much they look like a concealment rule. Raise an alert at a high score on its own, or at a medium score when the same user recently signed in from an address they have not used in the last two weeks. **On INC-01:** the rule at 08:02:44 scores 4 (obscure folder, finance words, a one-character name, marked as read), so it alerts without needing the sign-in condition. **Schema assumptions:** `Parameters` in `OfficeActivity` holds a JSON list of name and value pairs, so the regular expression for the rule name and the `has` tests on the text are approximations to check against real records. `UserId` is the user's UPN.
+
+### DET-11: Finance user signs in from an unmanaged device and a new IP, with MFA satisfied by a token claim
+
+| Field | Detail |
+|---|---|
+| Detection ID and name | DET-11: Unmanaged device, new IP, MFA from a token claim, finance user |
+| Attack scenario | An attacker replays a session token captured by an adversary-in-the-middle page. The sign-in succeeds without an MFA prompt because the token already carries the MFA claim. In INC-01 the first replay was at 07:59:44, from a hosting network, against Exchange Online. |
+| Affected system | Entra ID and the Microsoft 365 apps used by Finance Operations |
+| Required log source | Entra ID sign-in logs, table `SigninLogs` |
+| Currently collected? | **Yes, reported and listed as connected** (E7 §1). Whether `DeviceDetail` and `AuthenticationDetails` are populated in this workspace: confirm. |
+| Detection logic | Alert on a successful sign-in to Exchange, SharePoint or Graph by a named finance user when the device is not managed, the authentication details show the MFA requirement was met by a claim in the token, and the IP has not been used by that user in the previous 14 days. |
+| Likely false positives | Finance staff on personal phones or tablets. Travel. New home or office networks. Note that the MFA wording alone cannot separate good from bad, because the genuine 07:41 and 09:31 sign-ins in INC-01 show it too. The device and IP context are what make the detection useful. |
+| Tuning and validation | Start with a small group of Finance Operations users. Build a list of known unmanaged devices and approved BYOD users. Review a week of hits before turning it into an alert. |
+| Dependencies | A list of finance users, ideally maintained as a watchlist (none exists today, E8 §4, and creating one needs authorisation). Read-only access. The measured ingestion delay of `SigninLogs` (Q11 in INC-01). |
+| Priority and justification | **4, High.** It is the earliest signal that the data supports: the first replay at 07:59:44, before the rule creation. It is a narrow detection by design, so it will not add much to the 847-alert queue. |
+
+```kql
+// DET-11 (illustrative, untested): finance user, unmanaged device, new IP, MFA satisfied by a token claim.
+let financeUsers = dynamic(["<finance-ops-upn-1>", "<finance-ops-upn-2>"]);   // placeholders; ideally a watchlist
+let knownIps = SigninLogs
+    | where TimeGenerated between (ago(15d) .. ago(1h))
+    | where ResultType == 0
+    | summarize by Upn = tolower(UserPrincipalName), IPAddress;
+SigninLogs
+| where TimeGenerated > ago(30m)
+| where ResultType == 0
+| extend Upn = tolower(UserPrincipalName)
+| where Upn in (financeUsers)
+| where AppDisplayName has_any ("Exchange", "SharePoint", "Graph")
+| where tostring(DeviceDetail.isManaged) !in ("true", "True")
+| where tostring(AuthenticationDetails) has "claim in the token"
+| join kind=leftanti knownIps on Upn, IPAddress
+| project TimeGenerated, UserPrincipalName, IPAddress, AutonomousSystemNumber, AppDisplayName,
+          ClientAppUsed, DeviceDetail, ConditionalAccessStatus
+```
+
+**In plain language:** look at sign-ins in the last 30 minutes by the named finance users to the main Microsoft 365 apps, keep only those from a device that is not managed and where MFA was met by a token claim, then drop any whose IP address the user has used in the last two weeks. **On INC-01:** the 07:59:44 sign-in matches on all counts, because Policy 7 applied to it as an unmanaged device (A2) and the IP was new. **Schema assumptions:** `DeviceDetail.isManaged` and the phrase "claim in the token" inside `AuthenticationDetails` are as I understand the schema. The 30-minute window overlaps successive runs, so incident grouping must be on to avoid duplicates.
+
+### 8.3 Detections not written, because the data is not collected
+
+These would have fired at delivery or at the click, earlier than anything above. They are listed so the idea is not lost, and are **not** written as detections because the required data is not in the workspace.
+
+| Idea | Required data | Missing prerequisite |
+|---|---|---|
+| Email whose From domain is FinServe's own, with failing SPF and DMARC and a Reply-To on a different domain | Defender for Office 365 email events | Confirm whether advanced hunting tables reach the workspace. The Defender XDR connector is listed with `SecurityAlert` and `SecurityIncident` only (E7 §1). |
+| First click on a newly seen domain from an internal-looking email | Safe Links click events | Same as above, and Safe Links click tracking enabled. |
+
+### 8.4 Dependencies for this addendum
+
+| Dependency | Needed for | Owner | Status |
+|---|---|---|---|
+| Read-only Sentinel and Log Analytics access | DET-10, DET-11 | Marcus Ifill | Requested (Q1 in `Coverage-Gaps.md`) |
+| Measured ingestion delay for `SigninLogs` and `OfficeActivity` | DET-10, DET-11 | SOC | Not yet measured (Q11 in INC-01) |
+| List of finance users or a watchlist | DET-11 (and DET-10 if scoped) | Marcus Ifill, Finance Operations | Not yet requested |
+| Confirmation that `DeviceDetail`, `AuthenticationDetails` and `Parameters` carry the fields assumed | DET-10, DET-11 | SOC | Not started |
