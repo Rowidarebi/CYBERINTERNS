@@ -383,14 +383,3 @@ None has been enriched or looked up. They are not applied to any detection. Appl
 | 6 | Is the SOC authorised to disable accounts and block domains without CISO approval during an incident? What is FinServe's own severity scale? | Controls who may act in the first hour. |
 | 7 | Which team holds the rotation procedure for the DC-SLO SFTP credential and how is Meridian Trust notified of a change? | Needed for the decision in 7.3, row 5. |
 
-## 12. Contribution and AI use
-
-| Section | Prepared by | Reviewed by |
-|---|---|---|
-| 1 to 3 Summary, sources, timeline | [Team member names] | [Reviewer names] |
-| 4 Control stack | [Team member names] | [Reviewer names] |
-| 5 to 6 Scope and severity | [Team member names] | [Reviewer names] |
-| 7 Containment and eradication | [Team member names] | [Reviewer names] |
-| 8 to 11 Queries, detection gap, indicators, questions | [Team member names] | [Reviewer names] |
-
-**AI use.** This report was drafted with Claude (Anthropic) from the three inject artefacts and the team's existing SOC documents. [Team to complete: which members reviewed it, what was changed, and any other tool used.] No query in this report has been run and no claim has been checked against a live tenant.
