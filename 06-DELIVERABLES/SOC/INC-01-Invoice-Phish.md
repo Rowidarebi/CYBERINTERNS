@@ -14,7 +14,7 @@
 | Companion | `Detection-Backlog.md`, Section 8 (detection gap: DET-10 and DET-11); `INC-01-Evidence-Requests.md` (Inject 06; Section 10 added for Inject 07) |
 | References | Sentinel incident 2026-W2D1-0093; service desk ticket SD-2026-4417 |
 | Date | 14 October 2026 (Inject 04). Revised 19 October 2026, W3 D1 (Inject 06). Reassessed 21 October 2026, W3 D2 (Inject 07). |
-| Prepared by | SOC Team |
+| Prepared by | SOC Team. Section 31 lists who wrote which part. |
 | Status | **Provisional.** Built from the three inject artefacts and the existing 04-SOC documents. There is no tenant access and no query has been run. Section 8 lists what would be run and what I expect it to return. **Inject 06 update (Sections 12 to 31):** built from four further artefacts and the repository documents. Still no tenant or host access and no query run. Section 29 lists the added queries. **Inject 07 update (Section 32):** built from two further artefacts (I7-A1, I7-A2) and the repository documents. Still no tenant or host access and no query run. Section 32.12 lists the added assumptions, queries and questions. |
 
 **How to read this report.** Every statement is tagged.
@@ -1376,7 +1376,7 @@ sha256sum /opt/finrecon/conf/deliver.cfg /opt/finrecon/conf/refresh_uat.ps1
 | 19 | Is auditing enabled on `sqldb-uat`, and where does it write? | Section 19 row 1. |
 | 20 | Who takes the decision on tonight's settlement? | Section 22.3. |
 
-> **Update (Inject 07):** questions 21 to 28 are in Section 32.12.
+> **Update (Inject 07):** questions 21 to 29 are in Section 32.12.
 
 ## 31. Contribution and AI Use
 
@@ -1441,7 +1441,7 @@ I do not reproduce the credential, the account name or any connection detail her
 | F7-1 | A static, plain-text database credential shared by the production and UAT connections sits in a script in a directory the SFTP account could list. | I7-A2; I6-A2 |
 | F7-2 | UAT holds production personal and financial data for 181,402 customers with three fields masked. | I7-A1; I7-A2 |
 | F7-3 | UAT has no working detection or prevention: Free-tier Defender, audit-only policy, SQL auditing unconfirmed and uncollected. | I7-A1; E2 §1; E7 §1 |
-| F7-4 | A network path from the legacy host to UAT SQL exists, under a rule whose documented purpose is different. | I6-A3; E1 §3.1 |
+| F7-4 | A network path from the legacy host to UAT SQL exists, under a rule whose documented purpose is different. A standing exception (CHG-2024-0881) also lets the UAT App Service reach production SQL, with no expiry, and no analytics rule watches permitted flows between the zones. | I6-A3; E1 §3.1; E8; engagement plan, joint touchpoint 2 |
 | F7-5 | 21 permanent Contributors can administer UAT without a database login. | I7-A1; E2 §4; E9 (INC-2025-0924-002, a Contributor grant outside a change, approved retrospectively) |
 | F7-6 | The nightly overwrite and the 7-day restore window destroy UAT-side evidence quickly. | I7-A2; E2 §3 |
 | F7-7 | The documents and the script disagree on where the refresh runs. | I7-A2 against E4 F10 and E1 §3.1 |
@@ -1541,7 +1541,7 @@ If the host clock is British Summer Time (T6), the reads were at 02:53 UTC and t
 | Visibility that would have helped | None | None, and now confirmed by the owner (I7-N4, I7-N5) |
 | Time the credential has been exposed | Not considered | The script header is dated 11 March 2024, 31 months before 18 October. That date is a comment in the file, not file metadata. The credential may be older or newer than the header. |
 
-**Beyond UAT.** I7-A2 defines a production connection and a UAT connection with the same account and password. A full-database copy needs read access to the whole production database, so I treat the account as a production credential **[A]**. Its rights are not documented (ER-22). A route from the host to production SQL is not in the documents: E1 §3.1 records only the UAT App Service reaching `sqlmi-prod` (CHG-2024-0881). The flows supplied reach UAT only. So the exposure of the credential is a production-side finding in its own right. **Any use against production is not evidenced and is not claimed.** The production half is where retained evidence is best: `sqlmi-prod` auditing is on, with a one-year immutable copy in storage, outside Sentinel (E7 §3).
+**Beyond UAT.** I7-A2 defines a production connection and a UAT connection with the same account and password. A full-database copy needs read access to the whole production database, so I treat the account as a production credential **[A]**. Its rights are not documented (ER-22). A route from the host to production SQL is not in the documents. The documented route into production SQL from non-production is CHG-2024-0881: the UAT App Service may reach `sqlmi-prod` on port 1433 for the nightly refresh, with no expiry date (E1 §3.1). Anyone who can run code in that source range, for example a Contributor on `sub-nonprod` (T19), could try that route, and a valid production credential is the one thing they would still need. The script's shared credential is such a credential **[A]**. The flows supplied reach UAT only. So the exposure of the credential is a production-side finding in its own right. **Any use against production, by either route, is not evidenced and is not claimed.** The production half is where retained evidence is best: `sqlmi-prod` auditing is on, with a one-year immutable copy in storage, outside Sentinel (E7 §3).
 
 **Consequences if the worst case were real**
 
@@ -1595,7 +1595,7 @@ Basis tags and confidence words are as defined at the top of this report. IDs ar
 | I7-C2 | The actor logged in to `sqldb-uat` with the credential, at 04:11 or at any other time, including during the nine unseen host sessions. | A flow is not a login. No audit source we hold. UAT auditing is a belief (I7-N5). | **Unknown which:** Not enabled, Not forwarded or Not supplied. | ER-26, ER-29, ER-21 |
 | I7-C3 | Statements were run and data was read, up to all 181,402 customer records and the linked account and transaction tables. | Same. Query Store inside a restore is the only UAT-side lead. | As C2, and Aged out after Sun 25 Oct 04:11. | ER-21 |
 | I7-C4 | Data in UAT was written, altered or deleted, or users, roles or objects were created. | The account can overwrite the database (I7-A2). The overwrite at 02:00 on 19, 20 and 21 October replaced UAT-side state. | Aged out (overwritten), unless restored. | ER-21 |
-| I7-C5 | The credential was used against `sqlmi-prod`: from the host, from another internal address, or from the internet if a public endpoint is enabled. | No production-bound flows or audit rows supplied. Azure Firewall would not see a direct public-endpoint connection. Audit action groups unknown. | Not supplied. Not forwarded. | ER-24 |
+| I7-C5 | The credential was used against `sqlmi-prod`: from the host, from the UAT App Service under CHG-2024-0881, from another internal address, or from the internet if a public endpoint is enabled. | No production-bound flows or audit rows supplied. The CHG-2024-0881 flows are logged but no rule watches them (E8). Azure Firewall would not see a direct public-endpoint connection. Audit action groups unknown. | Not supplied. Not forwarded. | ER-24 |
 | I7-C6 | Data left the estate: through the SFTP service in an unseen session, an SSH tunnel, a direct database connection, or a control-plane export to storage. | Fortigate traffic logs not shown to arrive (Section 19, row 4). Blob logs never existed (row 3). Nine sessions unseen (row 10). | Never existed (blob). Not forwarded. Not supplied. | ER-23, ER-25, ER-32 |
 | I7-C7 | The credential was exposed before 17 October, to anyone who could read the directory (staff, FinRecon support, a backup restore), and has been used by someone else. | Plain text in a script with a header dated 11 March 2024. Readable by an unconfined SFTP account. Copies in backups (90 days) and wherever the script was copied. | Aged out for the host and UAT horizons. Not supplied for the one-year production audit. | ER-22, ER-24 |
 | I7-C8 | Other consumers of the same credential exist (scripts, hosts, pipelines) and are exposed. | "Shared" means used in more than one place. No inventory. | Not supplied | ER-22(c) |
@@ -1733,7 +1733,7 @@ It would not go lower than High until the host is rebuilt and every secret in `/
 | `finserve_settle` | Exposed; suspended by Meridian | Unchanged. The account could list `/opt/finrecon/conf`, so it was not confined. | I6-A2 | That the host and Meridian passwords match (T7) |
 | `sqldb-uat` | A permitted network flow | **A potentially accessed store of production-grade data** for 181,402 customers | I6-A3; I7-A1 | A login, a query, a read |
 | The shared refresh credential | Not in scope | **In scope as exposed.** Assessed likely to have been received. | I7-A2; I7-L2 | Use |
-| `sqlmi-prod` | Not in scope | **In scope as a credential exposure and a possible target.** | I7-A2; E7 §3 | **Production database compromise.** No production-bound flow, login or query is evidenced. |
+| `sqlmi-prod` | Not in scope | **In scope as a credential exposure and a possible target.** Reachable from non-production through CHG-2024-0881. | I7-A2; E7 §3; E1 §3.1 | **Production database compromise.** No production-bound flow, login or query is evidenced. |
 | Customer data | Possible | **Potentially exposed: 181,402 records** (the ceiling) | I7-A1 | Any access, extraction or loss |
 | Other consumers of the credential | Not in scope | Unknown (C8) | None | Anything |
 | Other DC-SLO workloads | Unknown | Unchanged | | |
@@ -1755,7 +1755,7 @@ Each action says which finding it addresses and how. Numbering continues the pla
 | **P1** C-19 | **Secure UAT restore points.** Restore `sqldb-uat` into an isolated, access-limited database at Sun 18 Oct 03:45, 04:20 and 05:15 UTC. The last lets the 04:00 to 05:00 Query Store interval persist (T19). A DBA reads Query Store and the user, role and object lists. Replaces C-10. | **F7-6.** The only route to any UAT-side statement evidence. | DBA or cloud platform (to be confirmed) | **Hard limit Sun 25 Oct 04:11.** Treat every restore as production data. First confirm that the nightly overwrite has left these restore points. |
 | **P1** C-20 | **Read the production audit** for the refresh account and for any login from 172.20.14.30 or 45.83.220.61 (ER-24, Q23). | **I7-C5, F7-1.** Decides whether the production half was used. | DBA with storage access; Marcus Ifill | Within 24 hours. Read in place. |
 | **P1** C-21 | **Investigate the SFTP-to-UAT connection.** Run the baseline (Q12, Q20, Q21), check the full `auth.log` for a session at 04:11, and read `sshd` forwarding settings and client tools (Q19 additions). Write a one-page call: routine, hostile or still open, with the evidence. | **Section 32.2, X1 to X6.** Turns an open question into a ruling, or says exactly why it cannot be ruled. | SOC with Marcus Ifill; Infrastructure | 24 to 48 hours |
-| **P1** C-22 | **Restrict access paths.** (a) After C-18, apply the deny in C-09. (b) Export, then disable public network access on the UAT server and remove rules not needed. (c) Check whether the `sqlmi-prod` public endpoint is enabled and what the NSG allows. (d) Keep the script and any secrets out of the SFTP account's reach on any rebuilt host. | **F7-4, I7-C5, I7-C6.** Closes the routes a holder of the credential could use without the host. | Cloud platform; network (to be confirmed) | Today and 48 hours. Export each setting first (ER-29, ER-24). |
+| **P1** C-22 | **Restrict access paths.** (a) After C-18, apply the deny in C-09. (b) Export, then disable public network access on the UAT server and remove rules not needed. (c) Check whether the `sqlmi-prod` public endpoint is enabled and what the NSG allows. (d) Keep the script and any secrets out of the SFTP account's reach on any rebuilt host. (e) Confirm the source range of CHG-2024-0881 and that the refresh really uses it, then give the exception an expiry. | **F7-4, I7-C5, I7-C6.** Closes the routes a holder of the credential could use without the host. | Cloud platform; network (to be confirmed) | Today and 48 hours. Export each setting first (ER-29, ER-24). |
 | **P1** C-23 | **Escalate in writing to the CISO today and send GRC the Section 32.9 package today**, not tomorrow. DPO told if the CISO agrees. | **F7-2.** Inject 01 makes anything likely to need ICO, FCA or PRA notification a same-day trigger. The DPO's decisions depend on facts held now. | SOC team | Today |
 
 #### Short-term (this week)
@@ -1781,6 +1781,8 @@ Each action says which finding it addresses and how. Numbering continues the pla
 ### 32.9 Cross-team coordination
 
 **The two findings are about the same database.** GRC holds a compliance finding about what the UAT refresh masks in `sqldb-uat`. The SOC holds a firewall log of a host connecting to `sqldb-uat` (10.30.2.14, `sub-nonprod`; I6-A3, T11). That is one database. SOC sends this section to GRC today and asks for a short joint session, because neither team can answer the other's question alone: GRC cannot say whether the database was reached, and SOC cannot say what the exposure means in law. I do not assume that GRC has finished a DPIA.
+
+**The engagement plan already put this on the table.** Its joint touchpoints (`06-DELIVERABLES/GRC/Engagement Plan - Project Sentinel (3).docx`, item 2, the UAT data refresh F10) split it in two. GRC assesses the data protection implications of unmasked National Insurance numbers in non-production. SOC assesses the standing exception CHG-2024-0881, which lets UAT reach production SQL, and whether that path is monitored. **SOC's answer to its half is that it is not.** The flows cross Azure Firewall, which logs them for 60 days (E7 §1, §4). The only analytics rule on Azure Firewall data counts blocked traffic (E8), so a permitted flow between the zones raises nothing. The managed instance's audit is on, but it sits in storage outside Sentinel (E7 §3). The plan also commits both teams to escalate urgent findings to the CISO in writing as soon as they are identified (C-23).
 
 **What SOC shares**
 
@@ -1837,7 +1839,7 @@ Nothing is deleted. Earlier text stays where it was written. These are the place
 | 21.2 | Conditions that would lower the rating to High | **Replaced** | 32.6. The old conditions could not be met as written. |
 | 22.2 | C-08 item 3, C-09, C-10, C-14 | **Sharpened** | C-17 to C-22, C-24 |
 | 27 | Handoff to GRC | **Extended** | 32.9 |
-| 30 | Questions 12 to 20 | **Extended** | Questions 21 to 28 in 32.12 |
+| 30 | Questions 12 to 20 | **Extended** | Questions 21 to 29 in 32.12 |
 
 **Unchanged:** Sections 1 to 11 other than the notes above, the timeline in Section 15, the path in Section 16.1, Section 20, and the Meridian-facing actions in Section 22.
 
@@ -1853,7 +1855,7 @@ Nothing is deleted. Earlier text stays where it was written. These are the place
 | T16 | **Where the job runs.** I7-A2 does not say which host executes the scheduled task. "Scheduled task" is Windows wording, and `sftp-slo` logs read as OpenSSH on Linux (operating system Unknown, Coverage-Gaps Q8). I do not assume the refresh runs on `sftp-slo`. The 02:00 may be host-local time. | If it runs on `sftp-slo`, X2 gains weight. If elsewhere, the script on `sftp-slo` is a copy and the question is why. |
 | T17 | **"Everything else".** I7-A1 says everything other than three fields arrives as in production. I treat every other column and table as unmasked, including phone numbers if held. E4 lists F10 as D1 and D3. E4 §2 shows D5 on the managed instance, and it is not confirmed as copied. | If more is masked than I7-A1 says, the exposure is smaller. |
 | T18 | **Population.** 181,402 is the row count at about 21 October. The count on 18 October is not supplied. I use it as the best available figure. | The figure is likely close, and could be a little higher or lower. |
-| T19 | **Product behaviour** (general knowledge, not FinServe documents; the DBA should confirm). (a) An Azure Firewall network-rule row records a rule match for a flow, not login, statements, bytes or duration. (b) Query Store buckets are 60 minutes by default and are stored in the database, so a point-in-time restore brings them back. (c) Managed-instance audit records carry client address, principal and application name when the relevant action groups are on. (d) Changing a SQL login's password overwrites its password-last-set time. (e) A subscription Contributor can change SQL auditing, firewall and administrator settings, and export or copy a database, without a database login. | Each affects the matching request: (a) ER-25, (b) ER-21, (c) ER-24, (d) ER-22, (e) ER-30 and ER-31. |
+| T19 | **Product behaviour** (general knowledge, not FinServe documents; the DBA should confirm). (a) An Azure Firewall network-rule row records a rule match for a flow, not login, statements, bytes or duration. (b) Query Store buckets are 60 minutes by default and are stored in the database, so a point-in-time restore brings them back. (c) Managed-instance audit records carry client address, principal and application name when the relevant action groups are on. (d) Changing a SQL login's password overwrites its password-last-set time. (e) A subscription Contributor can change SQL auditing, firewall and administrator settings, export or copy a database, and deploy or run code in an App Service, without a database login. | Each affects the matching request: (a) ER-25, (b) ER-21, (c) ER-24, (d) ER-22, (e) ER-30 and ER-31. |
 
 **Queries** (continuing Q19; none run; names to be checked in the workspace; read-only)
 
@@ -1869,19 +1871,19 @@ AZFWNetworkRule
 
 *Expect:* flows around the refresh on 18 and 19 October if the job runs from this host, with the pattern visible by hour. Any Deny. Only the three flows, if it does not. Compare with the window and filter behind I6-A3, which are not stated.
 
-**Q21. Flows from the host to any SQL address, 60 days (Sentinel)**
+**Q21. Flows to any production SQL address from the host and from the CHG-2024-0881 range, 60 days (Sentinel)**
 
 ```kql
 AZFWNetworkRule
 | where TimeGenerated > ago(60d)
-| where SourceIp == "172.20.14.30"
+| where SourceIp == "172.20.14.30" or Rule has "CHG-2024-0881"
 | where DestinationPort == 1433 or DestinationPort == 3342 or DestinationPort between (11000 .. 11999)
 | summarize Flows = count(), First = min(TimeGenerated), Last = max(TimeGenerated)
-    by DestinationIp, DestinationPort, Action, Rule, Hour = hourofday(TimeGenerated)
-| order by DestinationIp asc, Hour asc
+    by SourceIp, DestinationIp, DestinationPort, Action, Rule, Hour = hourofday(TimeGenerated)
+| order by DestinationIp asc, SourceIp asc, Hour asc
 ```
 
-*Expect:* flows at a regular hour to the production managed instance's address (the platform team will recognise it) if the refresh runs here. None means the job does not run here, or the flows do not cross Azure Firewall.
+*Expect:* flows at a regular hour to the production managed instance's address (the platform team will recognise it) if the refresh runs from the host, or from the UAT App Service's range under CHG-2024-0881 if it runs as the documents say. A source outside both, or an hour outside the refresh, is new. None from the host means the job does not run there, or the flows do not cross Azure Firewall. The rule name is as recorded in E1 §3.1 and must be checked in the workspace.
 
 **Q22. Is the firewall log complete around 04:11? (Sentinel)**
 
@@ -1948,3 +1950,4 @@ grep -h -E "close .*(deliver.cfg|refresh_uat.ps1)" /var/log/auth.log* /var/log/*
 | 26 | Is public network access enabled on the UAT server, and is the `sqlmi-prod` public endpoint enabled? | I7-C5; whether the host was needed at all. |
 | 27 | Can we read PROD-TEST-042, and who accepted the risk at Lighthouse? | I7-N3; GRC. |
 | 28 | Is FinServe's own incident severity scale available? (Section 11, question 6 is still open.) | 32.6. |
+| 29 | Does the nightly refresh really use the CHG-2024-0881 route to `sqlmi-prod`, from which source range, and why has the exception no expiry? | I7-C5; the second route into production SQL (32.3). |
