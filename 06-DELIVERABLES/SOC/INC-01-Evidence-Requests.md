@@ -5,11 +5,9 @@
 | Item | Detail |
 |---|---|
 | To | Marcus Ifill, Security Operations Manager, FinServe Digital Bank Ltd |
-| From | SOC Team, Sycom Academy. [Team member names] |
+| From | SOC Team |
 | Date | W3 D1 (Monday 19 October 2026). Extended W3 D2 (Wednesday 21 October 2026) for Inject 07: Section 10. |
 | Responds to | Marcus's message of 07:31: "What do you need from me." Section 10 responds to Inject 07. |
-| Deliverable | `06-DELIVERABLES/SOC/INC-01-Evidence-Requests.md` |
-| Read with | `INC-01-Invoice-Phish.md`, Sections 12 to 32 (the incident report). Query numbers Q1 to Q24 and section numbers refer to that file. |
 | Status | **Requests only.** Nothing has been run or collected. We have no tenant or host access. Every window assumes the calendar in report assumption T5 (W2 D1 is Monday 12 October). Section 10 uses the date on the Inject 07 email (assumption T13). |
 
 ## 1. The short answer
