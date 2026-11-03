@@ -14,7 +14,7 @@
 | Companion | `Detection-Backlog.md`, Section 8 (detection gap: DET-10 and DET-11); `INC-01-Evidence-Requests.md` (Inject 06; Section 10 added for Inject 07) |
 | References | Sentinel incident 2026-W2D1-0093; service desk ticket SD-2026-4417 |
 | Date | 14 October 2026 (Inject 04). Revised 19 October 2026, W3 D1 (Inject 06). Reassessed 21 October 2026, W3 D2 (Inject 07). |
-| Prepared by | SOC Team. Section 31 lists who wrote which part. |
+| Prepared by | SOC Team |
 | Status | **Provisional.** Built from the three inject artefacts and the existing 04-SOC documents. There is no tenant access and no query has been run. Section 8 lists what would be run and what I expect it to return. **Inject 06 update (Sections 12 to 31):** built from four further artefacts and the repository documents. Still no tenant or host access and no query run. Section 29 lists the added queries. **Inject 07 update (Section 32):** built from two further artefacts (I7-A1, I7-A2) and the repository documents. Still no tenant or host access and no query run. Section 32.12 lists the added assumptions, queries and questions. |
 
 **How to read this report.** Every statement is tagged.
